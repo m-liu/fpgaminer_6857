@@ -59,40 +59,122 @@ typedef struct{
 } Struct512 deriving (Bits, Eq);
 
 
+//last 64 bit of hash indicates num of BITS. 
+function Bit#(9) getMessageLen(Bit#(512) msg);
+	return truncate(msg);
+endfunction
+
 
 interface MineRequest;
-	method Action setTxIn(Struct512 d);
+	method Action reqMine(Struct512 r, Struct256 diffMask);
+	method Action setLatencyInitNonce(Bit#(32) lat, Bit#(64) initNonce);
+	method Action reqDebug(Bit#(32) dummy);
 endinterface
 
 interface MineIndication;
-	method Action getHash(Struct256 h);
+	method Action getGoldResults(Struct256 h, Bit#(64) goldNonce);
+	method Action getDebug(Struct512 req, Struct512 currRxIn0, Struct512 currRxInMax, Bit#(64) nonce, Bit#(64) nonceMax);
 endinterface
 
+typedef 8 NUM_HASHERS;
 
 module mkMain#(MineIndication indication)(MineRequest);
 
 
-	VSha sha <- vMkSha();
-	Reg#(Bit#(512)) rxIn <- mkReg(0);
-	Reg#(Bit#(256)) txHash <- mkReg(0);
-
-	rule setInput;
-		sha.setRxInput(rxIn);
+	Reg#(Bit#(512)) currReq <- mkReg(0);
+	Reg#(Bit#(256)) currDiffMask <- mkReg(0); //111..000
+	Reg#(Bit#(64)) initNonceR <- mkReg(0); //(nodeid)*2^62 for 4 nodes 
+	Reg#(Bit#(64)) cyc <- mkReg(0);
+	Reg#(Bit#(32)) latR <- mkReg(0);
+	FIFO#(Tuple2#(Bit#(512), Bit#(256))) reqQ <- mkFIFO();
+	
+	rule cycleCnt;
+		cyc <= cyc + 1;
 	endrule
 
-	rule getOut;
-		txHash <= sha.getTxHash();
-		$display("@%t: hash=%x", $time, txHash);
+
+
+`ifdef BSIM
+	Vector#(NUM_HASHERS, VSha) sha <- replicateM(vMkShaModel());
+`else
+	Vector#(NUM_HASHERS, VSha) sha <- replicateM(vMkSha());
+`endif
+	Vector#(NUM_HASHERS, Reg#(Bit#(512))) rxIn <- replicateM(mkReg(0));
+	Vector#(NUM_HASHERS, Reg#(Bit#(64))) nonce <- replicateM(mkReg(0));
+	Vector#(NUM_HASHERS, FIFO#(Tuple2#(Bit#(256), Bit#(64)))) resultsQ <- replicateM(mkFIFO());
+	
+
+
+	//this rule takes priority
+	//if there's a new request, then we should forget the old one 
+	rule handlReq;// if (st==CMD || st==PROCESS);
+		match{.req, .diffmask} = reqQ.first;
+		reqQ.deq;
+		currReq <= req;
+		currDiffMask <= diffmask;
+		for (Integer i=0; i<valueOf(NUM_HASHERS); i=i+1) begin
+			nonce[i] <= initNonceR + fromInteger(i); //INITIAL VALUE IS VERY IMPORTANT!
+		end
+		$display("@%d: Main.bsv: handle request; req=%x, diffmask=%x", cyc, req, diffmask);
 	endrule
 
+	//for each hasher..
+	for (Integer i=0; i<valueOf(NUM_HASHERS); i=i+1) begin
+		rule setInput;
+			sha[i].setRxInput(rxIn[i]);
+		endrule
+	
 
-	rule doIndicate;
-		indication.getHash(unpack(txHash));
-		$display("getHash: %x", txHash);
-	endrule
+		rule doProcess;
+			let txHash = sha[i].getTxHash();
+			$display("@%d:[%d] hash=%x", cyc, i, txHash);
+			if ( (txHash!=0) && (txHash & currDiffMask) == 0 ) begin
+				//FIXME hacky.. what's the correct latency here?
+				Bit#(64) goldNonce = nonce[i] - zeroExtend(latR); 
+				$display("@%d: [%d] Gold nonce found! nonce=%d", cyc, i, goldNonce);
+				//indication.getGoldResults(unpack(txHash), goldNonce);
+				resultsQ[i].enq(tuple2(txHash, goldNonce));
+			end
+		endrule
+		
+		
+		rule doSend; // if (st==PROCESS);
+				Bit#(9) msgLen = getMessageLen(currReq);
+				Bit#(10) padLen = 512 - zeroExtend(msgLen);
 
-	method Action setTxIn(Struct512 d);
-		rxIn <= pack(d);
-		$display("setTxIn: %x", pack(d));
+				Bit#(64) tmpMask = -1;
+				Bit#(512) tmpMaskExt = zeroExtend(tmpMask); 
+				Bit#(512) nonceMask = ~ (tmpMaskExt << (padLen+32)); //11..100011..11
+				Bit#(512) nonceExt = zeroExtend(nonce[i]);
+				Bit#(512) newBlk = (currReq & nonceMask) | (nonceExt << (padLen+32));
+
+				nonce[i] <= nonce[i] + fromInteger(valueOf(NUM_HASHERS)); //INCREMENT BY NUM HASHERS
+				rxIn[i] <= newBlk;
+				$display("@%d: [%d] Main.bsv: msgLen=%d, padLen=%d, nonceMask=%x, nonce=%d, newBlk=%x", 
+							cyc, i, msgLen, padLen, nonceMask, nonce[i], newBlk);
+			
+		endrule
+
+		rule gatherResults;
+			resultsQ[i].deq;
+			match{.hash, .goldnonce} = resultsQ[i].first;
+			indication.getGoldResults(unpack(hash), goldnonce);
+		endrule
+
+	end //num hashers
+
+
+	method Action reqMine(Struct512 r, Struct256 diffMask);
+		reqQ.enq(tuple2(pack(r), pack(diffMask)));
 	endmethod
+
+	method Action setLatencyInitNonce(Bit#(32) lat, Bit#(64) initNonce);
+		latR <= lat;
+		initNonceR <= initNonce;
+	endmethod
+
+	method Action reqDebug(Bit#(32) dummy);
+		indication.getDebug(unpack(currReq), unpack(rxIn[0]), unpack(rxIn[valueOf(NUM_HASHERS)-1]), nonce[0], nonce[valueOf(NUM_HASHERS)-1]);
+	endmethod
+
 endmodule
