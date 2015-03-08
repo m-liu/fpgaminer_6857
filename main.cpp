@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "MineRequest.h"
 #include "MineIndication.h"
@@ -110,14 +112,14 @@ public:
 
 int main(int argc, const char **argv)
 {
-	if (argc != 5) {
-		fprintf(stderr, "ERROR: incorrect number of parameters. Use: ./ubuntu.exe <hashHeader> <difficulty> <nodeId> <numNodes>\n");
+	if (argc != 3) {
+		fprintf(stderr, "ERROR: incorrect number of parameters. Use: ./ubuntu.exe <hashHeader> <difficulty>\n");
 		return -1;
 	}
 	const char *reqHeader = argv[1];
 	int diff = atoi(argv[2]);
-	int myNodeId = atoi(argv[3]);
-	int numNodes = atoi(argv[4]);
+	//int myNodeId = atoi(argv[3]);
+	//int numNodes = atoi(argv[4]);
 
 
 	MineIndication *indication = new MineIndication(IfcNames_MineIndication);
@@ -126,10 +128,19 @@ int main(int argc, const char **argv)
 	
 	portalExec_start();
 	
+	/*
 	uint64_t maxNonce = -1;
-	uint64_t noncePiece = maxNonce/numNodes;
+	uint64_t noncePiece = maxNonce/numNodes; 
 	uint64_t initNonce = myNodeId * noncePiece;
 	fprintf(stderr, "Node %d/%d maxNonce=%lx, noncePiece=%lx, initNonce=%lx\n", myNodeId, numNodes, maxNonce, noncePiece, initNonce);
+	*/
+
+	srand(time(NULL));
+	uint64_t rand64 = rand();
+	uint64_t initNonce = rand64 << 48;
+	fprintf(stderr, "rand64=%016lx, initNonce = %016lx or %lu\n", rand64, initNonce, initNonce);
+
+
 	device->setLatencyInitNonce(66, initNonce);
 	
 	//deadbeefcafe00000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000170

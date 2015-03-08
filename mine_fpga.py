@@ -12,21 +12,25 @@ import subprocess
 import os
 import time
 
-#group 29
+
+##############################
+# Configuration parameters
+##############################
 
 groupNum = "29"
 url_base = "http://6857coin.csail.mit.edu/"
-proc = 0
 genesis = "77a22709b4f6ad7c13c1a5c898cb63872ed00be3eadbd94e6b32482fe7518d51"
+chainPosition = "HEAD"
+#chainPosition = "BLOCK"
+
 #groupChain = "000000a5467ade7cb516dbff6411c664c3888ab98f205fe84b4ec19a90d13ab6"
 specificBlk= "0000008e859f76b34c4ffe2b32e5f912a2f5dffaed2aa84cfaac61dcabdd74e3" #group 29
 #groupChain = "00000000002fa56340caf894bf0c34b785c6b762d87a3e706998f337f36c013b" #split head at blk 1765
-
-
 #groupChain =  "00000000003fba3ceb3b372a61470aed0b4db3262d43fddaf09367e92d40bded"
 #specificBlk = "00000000007e48a67791c2ebcc480b69d1f6bd61116b203a526af6b8c6f971c8"
-#chainPosition = "BLOCK"
-chainPosition = "HEAD"
+
+proc = 0
+
 
 def getJson (reqType):
 	global specificBlk, genesis
@@ -166,10 +170,11 @@ diff = getDifficulty(blkhead["Length"]+1)
 print "difficulty=", diff
 sys.stdout.flush()
 
+blksFound=0
 while True:
 
 	header = constructNewHash(blkhead, blkheader, 0)
-	cmd = './ubuntu.exe ' + binascii.hexlify(header) + ' ' + str(diff) + ' 0 1'
+	cmd = './ubuntu.exe ' + binascii.hexlify(header) + ' ' + str(diff)
 	print "cmd=", cmd
 	for line in runProcess(cmd.split()):
 		print "UNBUNTU.EXE:", line,
@@ -193,12 +198,14 @@ while True:
 						print "Hash=", binascii.hexlify(h)
 						print "SUCCESS!!! Nonce=", nonce
 						sendPost(blkhead, nonce)
+						blksFound = blksFound + 1
+						print "Num blks found=", blksFound
 						success=True
 						break
 				if (not success):
 					print "***ERROR: HW gold nonce found but not verified!"
 				sys.stdout.flush()
-				time.sleep(5) #wait for server to update head
+				time.sleep(3) #wait for server to update head
 
 			#ask for new work
 			print "getting new work time=", datetime.datetime.now()
@@ -217,6 +224,7 @@ while True:
 				break
 			else: 
 				print "no new work..whew"
+			print "Num blks found=", blksFound
 			sys.stdout.flush()
 
 
