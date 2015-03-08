@@ -76,7 +76,7 @@ interface MineIndication;
 	method Action getDebug(Struct512 req, Struct512 currRxIn0, Struct512 currRxInMax, Bit#(64) nonce, Bit#(64) nonceMax);
 endinterface
 
-typedef 8 NUM_HASHERS;
+typedef 4 NUM_HASHERS;
 
 module mkMain#(MineIndication indication)(MineRequest);
 
@@ -130,7 +130,8 @@ module mkMain#(MineIndication indication)(MineRequest);
 			$display("@%d:[%d] hash=%x", cyc, i, txHash);
 			if ( (txHash!=0) && (txHash & currDiffMask) == 0 ) begin
 				//FIXME hacky.. what's the correct latency here?
-				Bit#(64) goldNonce = nonce[i] - zeroExtend(latR); 
+				//FIXME!!!!!  This is approximate..?
+				Bit#(64) goldNonce = nonce[i] - zeroExtend(latR)*fromInteger(valueOf(NUM_HASHERS));  
 				$display("@%d: [%d] Gold nonce found! nonce=%d", cyc, i, goldNonce);
 				//indication.getGoldResults(unpack(txHash), goldNonce);
 				resultsQ[i].enq(tuple2(txHash, goldNonce));
