@@ -1,2 +1,10 @@
 FPGA Miner for 6857coin
-http://6857coin.csail.mit.edu/
+
+Description
+--------------------------------
+An FPGA implementation of SHA256 cores to mine cryptocurrency in 6.857. 
+Details at: http://6857coin.csail.mit.edu/
+Communication over PCIe provided by Connectal. 
+
+Max Hash Rate on Xilinx VC707: 8x cores @ 125MHz = 1 GH/s
+Beware of overheating. 
