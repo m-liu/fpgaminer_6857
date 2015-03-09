@@ -236,7 +236,7 @@ int main(int argc, const char **argv)
 	fprintf(stderr, "Main::mining starts\n");
 	while(true){
 		device->reqDebug(0);
-		sleep(60);
+		sleep(15);
 	}
 	
 }

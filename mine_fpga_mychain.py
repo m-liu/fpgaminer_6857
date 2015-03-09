@@ -19,8 +19,10 @@ import time
 
 groupNum = "29"
 url_base = "http://6857coin.csail.mit.edu/"
+afspath = '/afs/csail.mit.edu/u/m/ml/test/mine/mychain.txt'
 genesis = "77a22709b4f6ad7c13c1a5c898cb63872ed00be3eadbd94e6b32482fe7518d51"
-chainPosition = "HEAD"
+#chainPosition = "HEAD"
+chainPosition = "AFS"
 #chainPosition = "BLOCK"
 
 #groupChain = "000000a5467ade7cb516dbff6411c664c3888ab98f205fe84b4ec19a90d13ab6"
@@ -37,16 +39,28 @@ def getJson (reqType):
 	print "getting json at ", reqType
 	if reqType=="HEAD":
 		url = url_base + "head"
+		jsonurl = urllib.urlopen(url)
+		jsonread = jsonurl.read()
 	elif reqType=="NEXT":
 		url = url_base + "next/" + specificBlk
+		jsonurl = urllib.urlopen(url)
+		jsonread = jsonurl.read()
 	elif reqType=="GENESIS":
 		url = url_base + "block/" + genesis
+		jsonurl = urllib.urlopen(url)
+		jsonread = jsonurl.read()
 	elif reqType=="BLOCK": 
 		url = url_base + "block/" + specificBlk
+		jsonurl = urllib.urlopen(url)
+		jsonread = jsonurl.read()
+	elif reqType=="AFS":
+		#send to afs too
+		afsfile = open(afspath, 'r')
+		jsonread = afsfile.readline()
+		afsfile.close()
 	else: 
 		print "ERROR: getJson wrong request type"
-	jsonurl = urllib.urlopen(url)
-	return json.loads(jsonurl.read())
+	return json.loads(jsonread)
 
 def andStr(xs, ys):
 	ret = [x & y for x, y in zip(xs, ys)]
@@ -103,10 +117,15 @@ def sendPost(headblk, goldnonce):
 				}
 	url = url_base + "add"
 	print url
-	print json.dumps(values)
+	jsonraw = json.dumps(values)
+	print jsonraw
 	headers = {'content-type': 'application/json'}
-	r = requests.post(url, data=json.dumps(values), headers=headers)
+	r = requests.post(url, data=jsonraw, headers=headers)
 	print r.text
+	#send to afs too
+	afsfile = open(afspath, 'w')
+	afsfile.write(jsonraw)
+	afsfile.close()
 	
 
 def getHeader(nblk):
