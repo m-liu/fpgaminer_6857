@@ -112,12 +112,13 @@ public:
 
 int main(int argc, const char **argv)
 {
-	if (argc != 3) {
-		fprintf(stderr, "ERROR: incorrect number of parameters. Use: ./ubuntu.exe <hashHeader> <difficulty>\n");
+	if (argc != 4) {
+		fprintf(stderr, "ERROR: incorrect number of parameters. Use: ./ubuntu.exe <hashHeader> <difficulty> <nodeid> <seed>\n");
 		return -1;
 	}
 	const char *reqHeader = argv[1];
 	int diff = atoi(argv[2]);
+	uint64_t rand64 = atoi(argv[3]);
 	//int myNodeId = atoi(argv[3]);
 	//int numNodes = atoi(argv[4]);
 
@@ -135,9 +136,9 @@ int main(int argc, const char **argv)
 	fprintf(stderr, "Node %d/%d maxNonce=%lx, noncePiece=%lx, initNonce=%lx\n", myNodeId, numNodes, maxNonce, noncePiece, initNonce);
 	*/
 
-	srand(time(NULL));
-	uint64_t rand64 = rand();
-	uint64_t initNonce = rand64 << 48;
+	//srand(time(NULL));
+	//uint64_t rand64 = rand();
+	uint64_t initNonce = rand64 << 32;
 	fprintf(stderr, "rand64=%016lx, initNonce = %016lx or %lu\n", rand64, initNonce, initNonce);
 
 
